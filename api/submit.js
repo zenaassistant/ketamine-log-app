@@ -3,14 +3,21 @@ export default async function handler(req, res) {
 
   const { data } = req.body;
   const sheetId = process.env.GOOGLE_SHEET_ID;
-  const serviceAccountKey = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY || '{}');
+
+  let serviceAccountKey = {};
+  try {
+    const raw = process.env.GOOGLE_SERVICE_ACCOUNT_KEY || '{}';
+    serviceAccountKey = JSON.parse(raw);
+  } catch (parseErr) {
+    console.error('Failed to parse GOOGLE_SERVICE_ACCOUNT_KEY:', parseErr.message);
+    return res.status(500).json({ error: 'Service account key is misconfigured — please re-paste the full JSON in Vercel environment variables.' });
+  }
 
   if (!sheetId || !serviceAccountKey.client_email) {
-    return res.status(500).json({ error: 'Google Sheets not configured yet. Contact your administrator.' });
+    return res.status(500).json({ error: 'Google Sheets not configured. Missing GOOGLE_SHEET_ID or GOOGLE_SERVICE_ACCOUNT_KEY.' });
   }
 
   try {
-    // Get access token using service account JWT
     const token = await getAccessToken(serviceAccountKey);
 
     const timestamp = new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
@@ -33,7 +40,7 @@ export default async function handler(req, res) {
       data.vialsRemaining || ''
     ];
 
-    const response = await fetch(
+    const sheetResponse = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/Form%20Responses!A:P:append?valueInputOption=USER_ENTERED`,
       {
         method: 'POST',
@@ -45,14 +52,15 @@ export default async function handler(req, res) {
       }
     );
 
-    if (!response.ok) {
-      const err = await response.text();
-      throw new Error(err);
+    if (!sheetResponse.ok) {
+      const errText = await sheetResponse.text();
+      console.error('Sheets API error:', errText);
+      throw new Error(errText);
     }
 
     res.status(200).json({ success: true });
   } catch (err) {
-    console.error('Sheets error:', err);
+    console.error('Submit error:', err.message);
     res.status(500).json({ error: 'Failed to write to Google Sheet: ' + err.message });
   }
 }
@@ -81,5 +89,8 @@ async function getAccessToken(serviceAccount) {
   });
 
   const tokenData = await tokenRes.json();
+  if (!tokenData.access_token) {
+    throw new Error('Could not get access token: ' + JSON.stringify(tokenData));
+  }
   return tokenData.access_token;
 }
