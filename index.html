@@ -600,13 +600,16 @@
   micBtn.addEventListener('click', () => {
     if (!recognition) return;
     if (isRecording) {
+      isRecording = false;
+      micBtn.classList.remove('recording');
+      micStatus.textContent = '';
       recognition.stop();
     } else {
       isRecording = true;
       micBtn.classList.add('recording');
-      micStatus.textContent = 'Listening…';
+      micStatus.textContent = 'Listening… tap mic to stop';
       textInput.value = '';
-      recognition.start();
+      try { recognition.start(); } catch(e) {}
     }
   });
 
