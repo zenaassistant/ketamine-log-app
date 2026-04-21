@@ -1,6 +1,7 @@
 {
   "name": "ketamine-log-app",
   "version": "1.0.0",
+  "type": "module",
   "description": "IV/IM Ketamine administration log web app",
   "dependencies": {
     "jose": "^5.2.0"
