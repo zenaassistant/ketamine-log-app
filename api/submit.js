@@ -1,3 +1,6 @@
+import { SignJWT } from 'jose';
+import { createPrivateKey } from 'crypto';
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
@@ -10,7 +13,7 @@ export default async function handler(req, res) {
     serviceAccountKey = JSON.parse(raw);
   } catch (parseErr) {
     console.error('Failed to parse GOOGLE_SERVICE_ACCOUNT_KEY:', parseErr.message);
-    return res.status(500).json({ error: 'Service account key is misconfigured — please re-paste the full JSON in Vercel environment variables.' });
+    return res.status(500).json({ error: 'Service account key is misconfigured.' });
   }
 
   if (!sheetId || !serviceAccountKey.client_email) {
@@ -66,9 +69,6 @@ export default async function handler(req, res) {
 }
 
 async function getAccessToken(serviceAccount) {
-  const { SignJWT } = await import('jose');
-  const { createPrivateKey } = await import('crypto');
-
   const privateKey = createPrivateKey(serviceAccount.private_key);
   const now = Math.floor(Date.now() / 1000);
 
