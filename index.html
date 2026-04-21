@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>Ketamine Log</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f0f4f8;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    background: #1a56a0;
+    color: white;
+    padding: 16px 20px 12px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  header h1 { font-size: 17px; font-weight: 600; }
+  header p { font-size: 12px; opacity: 0.8; margin-top: 2px; }
+
+  .checklist {
+    background: white;
+    margin: 12px;
+    border-radius: 12px;
+    padding: 14px 16px;
+    border: 1px solid #e2e8f0;
+  }
+
+  .checklist h2 {
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 10px;
+  }
+
+  .fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .field {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #475569;
+    padding: 4px 0;
+  }
+
+  .field-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #cbd5e1;
+    flex-shrink: 0;
+    transition: background 0.2s;
+  }
+
+  .field.filled .field-dot { background: #22c55e; }
+  .field.required-missing .field-dot { background: #f59e0b; }
+
+  .chat-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .message {
+    max-width: 88%;
+    padding: 10px 14px;
+    border-radius: 18px;
+    font-size: 15px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+  }
+
+  .message.assistant {
+    background: white;
+    color: #1e293b;
+    border: 1px solid #e2e8f0;
+    align-self: flex-start;
+    border-bottom-left-radius: 4px;
+  }
+
+  .message.user {
+    background: #1a56a0;
+    color: white;
+    align-self: flex-end;
+    border-bottom-right-radius: 4px;
+  }
+
+  .message.system {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #166534;
+    align-self: center;
+    text-align: center;
+    font-size: 14px;
+    border-radius: 10px;
+    max-width: 100%;
+  }
+
+  .message.error {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+    align-self: center;
+    text-align: center;
+    font-size: 14px;
+    border-radius: 10px;
+    max-width: 100%;
+  }
+
+  .typing {
+    display: flex;
+    gap: 4px;
+    padding: 12px 16px;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    border-bottom-left-radius: 4px;
+    align-self: flex-start;
+    width: fit-content;
+  }
+
+  .typing span {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #94a3b8;
+    animation: bounce 1.2s infinite;
+  }
+
+  .typing span:nth-child(2) { animation-delay: 0.2s; }
+  .typing span:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes bounce {
+    0%, 60%, 100% { transform: translateY(0); }
+    30% { transform: translateY(-6px); }
+  }
+
+  .confirm-card {
+    background: white;
+    border: 2px solid #1a56a0;
+    border-radius: 12px;
+    padding: 14px;
+    margin: 4px 0;
+    align-self: flex-start;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .confirm-card h3 {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1a56a0;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .confirm-field {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 5px 0;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 14px;
+    gap: 8px;
+  }
+
+  .confirm-field:last-child { border-bottom: none; }
+  .confirm-field .label { color: #64748b; flex-shrink: 0; }
+  .confirm-field .value { color: #1e293b; font-weight: 500; text-align: right; }
+
+  .confirm-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .btn-confirm {
+    flex: 1;
+    background: #1a56a0;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .btn-edit {
+    flex: 1;
+    background: white;
+    color: #1a56a0;
+    border: 2px solid #1a56a0;
+    border-radius: 10px;
+    padding: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .input-bar {
+    background: white;
+    border-top: 1px solid #e2e8f0;
+    padding: 10px 12px;
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    position: sticky;
+    bottom: 0;
+  }
+
+  .input-wrap {
+    flex: 1;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 22px;
+    display: flex;
+    align-items: flex-end;
+    padding: 8px 14px;
+    gap: 8px;
+    min-height: 44px;
+  }
+
+  #textInput {
+    flex: 1;
+    border: none;
+    background: transparent;
+    font-size: 16px;
+    line-height: 1.4;
+    resize: none;
+    outline: none;
+    max-height: 120px;
+    font-family: inherit;
+    color: #1e293b;
+  }
+
+  #textInput::placeholder { color: #94a3b8; }
+
+  .btn-mic {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: none;
+    background: #1a56a0;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.2s, transform 0.1s;
+  }
+
+  .btn-mic:active { transform: scale(0.94); }
+  .btn-mic.recording { background: #dc2626; animation: pulse 1s infinite; }
+
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(220,38,38,0); }
+  }
+
+  .btn-send {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: none;
+    background: #1a56a0;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.2s, transform 0.1s;
+  }
+
+  .btn-send:disabled { background: #cbd5e1; cursor: default; }
+  .btn-send:not(:disabled):active { transform: scale(0.94); }
+
+  .new-session-btn {
+    background: white;
+    color: #1a56a0;
+    border: 1px solid #1a56a0;
+    border-radius: 20px;
+    padding: 8px 18px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    margin: 4px auto;
+    display: block;
+  }
+
+  .mic-status {
+    font-size: 12px;
+    color: #dc2626;
+    text-align: center;
+    padding: 4px 0 0;
+    min-height: 18px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>IV/IM Ketamine Log</h1>
+  <p>Speak or type your session notes</p>
+</header>
+
+<div class="checklist">
+  <h2>Required fields</h2>
+  <div class="fields">
+    <div class="field" id="f-date"><div class="field-dot"></div>Usage date</div>
+    <div class="field" id="f-clinician"><div class="field-dot"></div>Clinician</div>
+    <div class="field" id="f-client"><div class="field-dot"></div>Client</div>
+    <div class="field" id="f-session"><div class="field-dot"></div>Session #</div>
+    <div class="field" id="f-modality"><div class="field-dot"></div>Modality</div>
+    <div class="field" id="f-dosage"><div class="field-dot"></div>Dosage</div>
+    <div class="field" id="f-lot"><div class="field-dot"></div>Lot #</div>
+    <div class="field" id="f-waste"><div class="field-dot"></div>Waste?</div>
+    <div class="field" id="f-vial"><div class="field-dot"></div>New vial?</div>
+  </div>
+</div>
+
+<div class="chat-area" id="chatArea"></div>
+<div class="mic-status" id="micStatus"></div>
+
+<div class="input-bar">
+  <div class="input-wrap">
+    <textarea id="textInput" rows="1" placeholder="Type or tap mic to speak…"></textarea>
+  </div>
+  <button class="btn-mic" id="micBtn" title="Hold to record">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <rect x="9" y="2" width="6" height="12" rx="3"/>
+      <path d="M5 10a7 7 0 0 0 14 0"/>
+      <line x1="12" y1="19" x2="12" y2="22"/>
+      <line x1="8" y1="22" x2="16" y2="22"/>
+    </svg>
+  </button>
+  <button class="btn-send" id="sendBtn" disabled>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <line x1="22" y1="2" x2="11" y2="13"/>
+      <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+    </svg>
+  </button>
+</div>
+
+<script>
+  const chatArea = document.getElementById('chatArea');
+  const textInput = document.getElementById('textInput');
+  const sendBtn = document.getElementById('sendBtn');
+  const micBtn = document.getElementById('micBtn');
+  const micStatus = document.getElementById('micStatus');
+
+  let conversationHistory = [];
+  let pendingData = null;
+  let isRecording = false;
+  let recognition = null;
+
+  const fieldMap = {
+    usageDate: 'f-date',
+    clinician: 'f-clinician',
+    client: 'f-client',
+    sessionNumber: 'f-session',
+    modality: 'f-modality',
+    dosage: 'f-dosage',
+    lotNumber: 'f-lot',
+    wasteOccurred: 'f-waste',
+    newVialOpened: 'f-vial'
+  };
+
+  function addMessage(text, type) {
+    const div = document.createElement('div');
+    div.className = `message ${type}`;
+    div.textContent = text;
+    chatArea.appendChild(div);
+    chatArea.scrollTop = chatArea.scrollHeight;
+    return div;
+  }
+
+  function showTyping() {
+    const div = document.createElement('div');
+    div.className = 'typing';
+    div.id = 'typing';
+    div.innerHTML = '<span></span><span></span><span></span>';
+    chatArea.appendChild(div);
+    chatArea.scrollTop = chatArea.scrollHeight;
+  }
+
+  function removeTyping() {
+    const t = document.getElementById('typing');
+    if (t) t.remove();
+  }
+
+  function updateChecklist(data) {
+    Object.entries(fieldMap).forEach(([key, id]) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (data[key] && data[key] !== '') {
+        el.className = 'field filled';
+      }
+    });
+  }
+
+  function showConfirmCard(data) {
+    pendingData = data;
+    const card = document.createElement('div');
+    card.className = 'confirm-card';
+
+    const labels = {
+      usageDate: 'Date', clinician: 'Clinician', client: 'Client',
+      sessionNumber: 'Session #', modality: 'Modality', dosage: 'Dosage',
+      lotNumber: 'Lot #', notes: 'Notes', wasteOccurred: 'Waste',
+      amountWasted: 'Amount wasted', witnessName: 'Witness',
+      disposalMethod: 'Disposal', newVialOpened: 'New vial',
+      newVialLotNumber: 'New vial lot #', vialsRemaining: 'Vials remaining'
+    };
+
+    let html = '<h3>Confirm session data</h3>';
+    Object.entries(labels).forEach(([key, label]) => {
+      if (data[key] && data[key] !== '') {
+        html += `<div class="confirm-field">
+          <span class="label">${label}</span>
+          <span class="value">${data[key]}</span>
+        </div>`;
+      }
+    });
+
+    html += `<div class="confirm-actions">
+      <button class="btn-confirm" onclick="submitLog()">Log it</button>
+      <button class="btn-edit" onclick="editLog()">Edit</button>
+    </div>`;
+
+    card.innerHTML = html;
+    chatArea.appendChild(card);
+    chatArea.scrollTop = chatArea.scrollHeight;
+    updateChecklist(data);
+  }
+
+  function parseConfirmedData(text) {
+    const match = text.match(/<CONFIRMED_DATA>([\s\S]*?)<\/CONFIRMED_DATA>/);
+    if (!match) return null;
+    try {
+      return JSON.parse(match[1].trim());
+    } catch { return null; }
+  }
+
+  function cleanReply(text) {
+    return text.replace(/<CONFIRMED_DATA>[\s\S]*?<\/CONFIRMED_DATA>/g, '').trim();
+  }
+
+  async function sendMessage(userText) {
+    if (!userText.trim()) return;
+
+    addMessage(userText, 'user');
+    conversationHistory.push({ role: 'user', content: userText });
+    textInput.value = '';
+    textInput.style.height = 'auto';
+    sendBtn.disabled = true;
+    showTyping();
+
+    try {
+      const res = await fetch('/api/extract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userText, history: conversationHistory.slice(0, -1) })
+      });
+
+      const json = await res.json();
+      removeTyping();
+
+      const reply = json.reply || 'Sorry, something went wrong.';
+      conversationHistory.push({ role: 'assistant', content: reply });
+
+      const data = parseConfirmedData(reply);
+      const cleanText = cleanReply(reply);
+
+      if (cleanText) addMessage(cleanText, 'assistant');
+      if (data) showConfirmCard(data);
+
+    } catch (err) {
+      removeTyping();
+      addMessage('Connection error. Please try again.', 'error');
+    }
+  }
+
+  async function submitLog() {
+    if (!pendingData) return;
+
+    const cards = document.querySelectorAll('.confirm-card');
+    cards.forEach(c => c.remove());
+
+    showTyping();
+
+    try {
+      const res = await fetch('/api/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: pendingData })
+      });
+
+      const json = await res.json();
+      removeTyping();
+
+      if (json.success) {
+        addMessage('Session logged successfully. All tabs updated.', 'system');
+        setTimeout(() => {
+          const btn = document.createElement('button');
+          btn.className = 'new-session-btn';
+          btn.textContent = '+ Log another session';
+          btn.onclick = resetSession;
+          chatArea.appendChild(btn);
+          chatArea.scrollTop = chatArea.scrollHeight;
+        }, 500);
+      } else {
+        addMessage('Failed to save: ' + (json.error || 'Unknown error'), 'error');
+      }
+    } catch (err) {
+      removeTyping();
+      addMessage('Could not reach the server. Please try again.', 'error');
+    }
+
+    pendingData = null;
+  }
+
+  function editLog() {
+    const cards = document.querySelectorAll('.confirm-card');
+    cards.forEach(c => c.remove());
+    pendingData = null;
+    addMessage('No problem — what needs to be changed?', 'assistant');
+  }
+
+  function resetSession() {
+    conversationHistory = [];
+    pendingData = null;
+    chatArea.innerHTML = '';
+    document.querySelectorAll('.field').forEach(f => f.className = 'field');
+    addMessage('Ready for next session. Speak or type your notes.', 'assistant');
+  }
+
+  // Setup mic
+  function setupSpeech() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      micBtn.style.opacity = '0.4';
+      micBtn.title = 'Voice not supported on this browser';
+      return;
+    }
+
+    recognition = new SR();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = (e) => {
+      const transcript = Array.from(e.results).map(r => r[0].transcript).join('');
+      textInput.value = transcript;
+      textInput.dispatchEvent(new Event('input'));
+    };
+
+    recognition.onend = () => {
+      isRecording = false;
+      micBtn.classList.remove('recording');
+      micStatus.textContent = '';
+      if (textInput.value.trim()) sendMessage(textInput.value.trim());
+    };
+
+    recognition.onerror = (e) => {
+      isRecording = false;
+      micBtn.classList.remove('recording');
+      micStatus.textContent = e.error === 'not-allowed' ? 'Microphone access denied' : '';
+    };
+  }
+
+  micBtn.addEventListener('click', () => {
+    if (!recognition) return;
+    if (isRecording) {
+      recognition.stop();
+    } else {
+      isRecording = true;
+      micBtn.classList.add('recording');
+      micStatus.textContent = 'Listening…';
+      textInput.value = '';
+      recognition.start();
+    }
+  });
+
+  textInput.addEventListener('input', () => {
+    sendBtn.disabled = !textInput.value.trim();
+    textInput.style.height = 'auto';
+    textInput.style.height = Math.min(textInput.scrollHeight, 120) + 'px';
+  });
+
+  textInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (textInput.value.trim()) sendMessage(textInput.value.trim());
+    }
+  });
+
+  sendBtn.addEventListener('click', () => {
+    if (textInput.value.trim()) sendMessage(textInput.value.trim());
+  });
+
+  setupSpeech();
+
+  // Welcome message
+  addMessage("Ready to log a session. Speak or type — you can say everything at once, like:\n\n\"Gave Jordan 54mg IV today, session 3, lot 24430331, no waste, no new vial\"", 'assistant');
+</script>
+</body>
+</html>
