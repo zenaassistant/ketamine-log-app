@@ -3,6 +3,8 @@ export default async function handler(req, res) {
 
   const { message, history } = req.body;
 
+  const today = new Date().toLocaleDateString('en-US', { timeZone: 'America/Los_Angeles', month: '2-digit', day: '2-digit', year: 'numeric' });
+
   const systemPrompt = `You are a clinical data entry assistant for an IV/IM ketamine administration log at a medical clinic. Your job is to extract structured session data from what a clinician tells you — whether spoken naturally or typed.
 
 The fields you need to collect are:
@@ -27,7 +29,7 @@ BEHAVIOR:
 - If required fields are missing (1-7, 9, 13), ask for ONLY the missing ones — group them into one follow-up message
 - Be conversational and brief — this is a busy clinical setting
 - Once you have all required fields, respond with a JSON block wrapped in <CONFIRMED_DATA> tags containing all extracted fields, followed by a brief human-readable summary for the clinician to confirm
-- For date, if clinician says "today" use today's date. Format dates as MM/DD/YYYY
+- Today's date is ${today}. Always use this as the Usage Date unless the clinician explicitly states a different date. Format dates as MM/DD/YYYY
 - Accept natural speech like "gave 54mg IV to Jordan, session 3, no waste, same bottle"
 
 Required fields are: Usage Date, Clinician, Client, Session #, Modality, Dosage Administered, Lot # Used, Waste Occurred?, New Vial Opened?
