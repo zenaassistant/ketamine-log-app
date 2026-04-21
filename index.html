@@ -569,7 +569,7 @@
     }
 
     recognition = new SR();
-    recognition.continuous = false;
+    recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = 'en-US';
 
@@ -580,13 +580,17 @@
     };
 
     recognition.onend = () => {
-      isRecording = false;
+      if (isRecording) {
+        try { recognition.start(); } catch(e) {}
+        return;
+      }
       micBtn.classList.remove('recording');
       micStatus.textContent = '';
       if (textInput.value.trim()) sendMessage(textInput.value.trim());
     };
 
     recognition.onerror = (e) => {
+      if (e.error === 'no-speech') return;
       isRecording = false;
       micBtn.classList.remove('recording');
       micStatus.textContent = e.error === 'not-allowed' ? 'Microphone access denied' : '';
