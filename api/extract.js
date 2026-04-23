@@ -11,7 +11,7 @@ The fields you need to collect are:
 1. Usage Date — the date the session occurred (today's date if not specified)
 2. Clinician — the name of the clinician who administered the ketamine
 3. Client — the client's name
-4. Session # — which session in the series (1, 2, 3, 4, 5, 6, or Booster)
+4. Session # — which session in the series. Sessions 1-6 are the initial series. Anything after that is a booster and can be any number (e.g. 7, 10, 35) or the word 'Booster'. Accept any number the clinician provides.
 5. Modality — IV or IM
 6. Dosage Administered — the dose given, including unit (mg or mL)
 7. Lot # Used — the lot number of the vial used
