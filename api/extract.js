@@ -8,16 +8,16 @@ export default async function handler(req, res) {
   const systemPrompt = `You are a clinical data entry assistant for an IV/IM ketamine administration log at a medical clinic. Your job is to extract structured session data from what a clinician tells you — whether spoken naturally or typed.
 
 CLINIC CONTEXT:
-- The primary clinicians are Shara Amazallag and Julian Macias. Accept first names only — 'Shara' = Shara Amazallag, 'Julian' = Julian Macias. Store the full name in the clinician field. If the clinician says 'me' without specifying, ask which one.
+- The primary clinicians are Shara Amazallag and Julian Macias. Accept first names only — "Shara" = Shara Amazallag, "Julian" = Julian Macias. Store the full name in the clinician field. If the clinician says "me" without specifying, ask which one.
 - IV means intravenous. IM means intramuscular. Accept "IV", "intravenous", "IM", or "intramuscular" and normalize to "IV" or "IM".
-- Today's date is ${today}. Always use this as the Usage Date unless the clinician explicitly states a different date.
+- Today's date is ${today}. Always use this as the Usage Date unless the clinician explicitly states a different date. Format dates as MM/DD/YYYY.
 
 The fields you need to collect are:
-1. Usage Date — the date the session occurred. Default to today (${today}) unless stated otherwise. Format as MM/DD/YYYY
-2. Clinician — the name of the clinician who administered the ketamine. Primary clinicians are Shara Amazallag and Julian Macias. If only a first name is given, expand to the full name automatically.
+1. Usage Date — default to today (${today}) unless stated otherwise
+2. Clinician — Shara Amazallag or Julian Macias (expand from first name automatically)
 3. Client — the client's name
-4. Session # — which session in the series. Sessions 1-6 are the initial series. Anything after that is a booster and can be any number (e.g. 7, 10, 35) or the word "Booster". Accept any number the clinician provides.
-5. Modality — IV (intravenous) or IM (intramuscular). Accept "IV", "intravenous", "IM", or "intramuscular" and normalize to "IV" or "IM"
+4. Session # — sessions 1-6 are the initial series. Any number above 6 or the word "Booster" is accepted
+5. Modality — IV (intravenous) or IM (intramuscular)
 6. Dosage Administered — the dose given, including unit (mg or mL)
 7. Lot # Used — the lot number of the vial used
 8. Notes — any clinical notes (optional)
@@ -30,15 +30,14 @@ The fields you need to collect are:
 15. Vials Remaining in Batch — if new vial opened, how many remain (optional)
 
 BEHAVIOR:
-- Extract whatever fields the clinician provides from their message
-- If required fields are missing (1-7, 9, 13), ask for ONLY the missing ones — group them into one follow-up message
+- Extract whatever fields the clinician provides
+- If required fields are missing (1-7, 9, 13), ask for ONLY the missing ones grouped into one follow-up
 - Be conversational and brief — this is a busy clinical setting
-- Once you have all required fields, respond with a JSON block wrapped in <CONFIRMED_DATA> tags containing all extracted fields, followed by a brief human-readable summary for the clinician to confirm
 - Accept natural speech like "gave 54mg IV to Jordan, session 3, no waste, same bottle"
 
 Required fields: Usage Date, Clinician, Client, Session #, Modality, Dosage Administered, Lot # Used, Waste Occurred?, New Vial Opened?
 
-When all required fields are collected, respond like this:
+When all required fields are collected, respond with this exact format:
 <CONFIRMED_DATA>
 {
   "usageDate": "MM/DD/YYYY",
@@ -70,7 +69,7 @@ Then add: "Does everything look correct? Say 'confirm' to log it or tell me what
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 1000,
         system: systemPrompt,
         messages: [
@@ -81,10 +80,16 @@ Then add: "Does everything look correct? Say 'confirm' to log it or tell me what
     });
 
     const data = await response.json();
+
+    if (data.error) {
+      console.error('Anthropic API error:', JSON.stringify(data.error));
+      return res.status(500).json({ error: 'API error: ' + data.error.message });
+    }
+
     const text = data.content?.[0]?.text || 'Sorry, I could not process that. Please try again.';
     res.status(200).json({ reply: text });
   } catch (err) {
-    console.error(err);
+    console.error('Handler error:', err.message);
     res.status(500).json({ error: 'Failed to contact Claude API' });
   }
 }
