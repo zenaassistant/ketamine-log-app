@@ -43,29 +43,63 @@ export default async function handler(req, res) {
       data.vialsRemaining || ''
     ];
 
-    const sheetResponse = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/Form%20Responses!A:P:append?valueInputOption=USER_ENTERED`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ values: [row] })
-      }
-    );
-
-    if (!sheetResponse.ok) {
-      const errText = await sheetResponse.text();
-      console.error('Sheets API error:', errText);
-      throw new Error(errText);
-    }
+    await appendRowWithRetry(sheetId, token, row);
 
     res.status(200).json({ success: true });
   } catch (err) {
     console.error('Submit error:', err.message);
     res.status(500).json({ error: 'Failed to write to Google Sheet: ' + err.message });
   }
+}
+
+// Google Sheets occasionally returns a transient 503/429 with no fault of
+// ours; retry those with backoff instead of failing the clinician's
+// submission outright. Real config errors (401/403/400) fail fast.
+const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
+const MAX_ATTEMPTS = 3;
+const BACKOFF_MS = [500, 1000, 2000];
+
+async function appendRowWithRetry(sheetId, token, row) {
+  let lastErr;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    let sheetResponse;
+    try {
+      sheetResponse = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/Form%20Responses!A:P:append?valueInputOption=USER_ENTERED`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ values: [row] })
+        }
+      );
+    } catch (networkErr) {
+      // fetch itself threw (DNS/connection failure) — worth retrying.
+      lastErr = networkErr;
+      if (attempt === MAX_ATTEMPTS) throw lastErr;
+      console.warn(`Sheets API request failed, retrying (attempt ${attempt}/${MAX_ATTEMPTS}):`, networkErr.message);
+      await new Promise(resolve => setTimeout(resolve, BACKOFF_MS[attempt - 1]));
+      continue;
+    }
+
+    if (sheetResponse.ok) return;
+
+    const errText = await sheetResponse.text();
+    lastErr = new Error(errText);
+
+    if (!RETRYABLE_STATUS.has(sheetResponse.status) || attempt === MAX_ATTEMPTS) {
+      console.error('Sheets API error:', errText);
+      throw lastErr;
+    }
+
+    console.warn(`Sheets API returned ${sheetResponse.status}, retrying (attempt ${attempt}/${MAX_ATTEMPTS})...`);
+    await new Promise(resolve => setTimeout(resolve, BACKOFF_MS[attempt - 1]));
+  }
+
+  throw lastErr;
 }
 
 async function getAccessToken(serviceAccount) {
